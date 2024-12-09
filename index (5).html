@@ -1,0 +1,246 @@
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status do Lava Jato</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"></link>
+</head>
+<body class="bg-gray-100">
+    <div id="root"></div>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const socket = io('http://localhost:3000'); // Change this to your server's address
+
+        const vehiclesData = [
+            { id: 1, plate: 'ABC-1234', status: 'Na Fila' },
+            { id: 2, plate: 'DEF-5678', status: 'Em Andamento' },
+            { id: 3, plate: 'GHI-9012', status: 'Pronto' },
+            { id: 4, plate: 'JKL-3456', status: 'Na Fila' },
+            { id: 5, plate: 'MNO-7890', status: 'Em Andamento' },
+            { id: 6, plate: 'PQR-1234', status: 'Pronto' },
+            { id: 7, plate: 'STU-5678', status: 'Na Fila' },
+            { id: 8, plate: 'VWX-9012', status: 'Em Andamento' },
+            { id: 9, plate: 'YZA-3456', status: 'Pronto' },
+            { id: 10, plate: 'BCD-7890', status: 'Na Fila' },
+            { id: 11, plate: 'EFG-1234', status: 'Em Andamento' },
+            { id: 12, plate: 'HIJ-5678', status: 'Pronto' },
+            { id: 13, plate: 'KLM-9012', status: 'Na Fila' },
+            { id: 14, plate: 'NOP-3456', status: 'Em Andamento' },
+            { id: 15, plate: 'QRS-7890', status: 'Pronto' }
+        ];
+
+        const VehicleStatus = ({ vehicle, onStatusChange, onDelete, onPlateChange, isAdmin }) => {
+            const statusColors = {
+                'Na Fila': 'bg-yellow-500',
+                'Em Andamento': 'bg-blue-500',
+                'Pronto': 'bg-green-500'
+            };
+
+            return (
+                <div className="flex items-center justify-between p-4 bg-white shadow-md rounded-lg mb-4">
+                    <div className="flex items-center">
+                        <img src="https://placehold.co/50x50" alt="Placeholder image of a vehicle" className="w-12 h-12 rounded-full mr-4" />
+                        <div>
+                            {isAdmin ? (
+                                <input
+                                    type="text"
+                                    className="text-lg font-semibold border-b-2 border-gray-300 focus:outline-none focus:border-blue-500"
+                                    value={vehicle.plate}
+                                    onChange={(e) => onPlateChange(vehicle.id, e.target.value)}
+                                />
+                            ) : (
+                                <h2 className="text-lg font-semibold">{vehicle.plate}</h2>
+                            )}
+                            {isAdmin ? (
+                                <select
+                                    className={`text-sm ${statusColors[vehicle.status]} text-white px-2 py-1 rounded`}
+                                    value={vehicle.status}
+                                    onChange={(e) => onStatusChange(vehicle.id, e.target.value)}
+                                >
+                                    <option value="Na Fila">Na Fila</option>
+                                    <option value="Em Andamento">Em Andamento</option>
+                                    <option value="Pronto">Pronto</option>
+                                </select>
+                            ) : (
+                                <p className={`text-sm ${statusColors[vehicle.status]} text-white px-2 py-1 rounded`}>{vehicle.status}</p>
+                            )}
+                        </div>
+                    </div>
+                    {isAdmin && (
+                        <div className="flex items-center">
+                            <i className="fas fa-trash text-red-500 text-2xl cursor-pointer" onClick={() => onDelete(vehicle.id)}></i>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [vehicles, setVehicles] = useState(vehiclesData);
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [showLogin, setShowLogin] = useState(false);
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [pendingChanges, setPendingChanges] = useState([]);
+            const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+            const [vehicleToDelete, setVehicleToDelete] = useState(null);
+
+            useEffect(() => {
+                socket.on('updateVehicles', (updatedVehicles) => {
+                    setVehicles(updatedVehicles);
+                });
+            }, []);
+
+            const handleLogin = () => {
+                if (username === 'admin' && password === 'admin') {
+                    setIsLoggedIn(true);
+                    setShowLogin(false);
+                } else {
+                    alert('Login ou senha incorretos');
+                }
+            };
+
+            const handleStatusChange = (id, newStatus) => {
+                const updatedVehicles = vehicles.map(vehicle => vehicle.id === id ? { ...vehicle, status: newStatus } : vehicle);
+                setPendingChanges(updatedVehicles);
+            };
+
+            const handleDelete = (id) => {
+                setVehicleToDelete(id);
+                setShowConfirmDelete(true);
+            };
+
+            const confirmDelete = () => {
+                const updatedVehicles = vehicles.filter(vehicle => vehicle.id !== vehicleToDelete);
+                setPendingChanges(updatedVehicles);
+                setShowConfirmDelete(false);
+                setVehicleToDelete(null);
+            };
+
+            const handleAddVehicle = () => {
+                const newVehicle = { id: vehicles.length + 1, plate: `NEW-${vehicles.length + 1}`, status: 'Na Fila' };
+                const updatedVehicles = [...vehicles, newVehicle];
+                setPendingChanges(updatedVehicles);
+            };
+
+            const handlePlateChange = (id, newPlate) => {
+                const updatedVehicles = vehicles.map(vehicle => vehicle.id === id ? { ...vehicle, plate: newPlate } : vehicle);
+                setPendingChanges(updatedVehicles);
+            };
+
+            const applyChanges = () => {
+                setVehicles(pendingChanges);
+                socket.emit('updateVehicles', pendingChanges);
+            };
+
+            const handleLogout = () => {
+                setIsLoggedIn(false);
+                setPendingChanges([]);
+            };
+
+            const sortedVehicles = vehicles.sort((a, b) => {
+                const statusOrder = { 'Pronto': 1, 'Em Andamento': 2, 'Na Fila': 3 };
+                return statusOrder[a.status] - statusOrder[b.status];
+            });
+
+            return (
+                <div className="container mx-auto p-4">
+                    <div className="flex justify-between items-center mb-4">
+                        <i className="fas fa-user-circle text-3xl text-gray-700 cursor-pointer" onClick={() => setShowLogin(true)}></i>
+                        <h1 className="text-2xl font-bold">Status do Lava Jato</h1>
+                    </div>
+                    {showLogin && (
+                        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center">
+                            <div className="bg-white p-6 rounded-lg shadow-lg">
+                                <h2 className="text-xl font-bold mb-4">Login</h2>
+                                <input
+                                    type="text"
+                                    placeholder="Usuário"
+                                    className="border p-2 mb-4 w-full"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                />
+                                <input
+                                    type="password"
+                                    placeholder="Senha"
+                                    className="border p-2 mb-4 w-full"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                                <button
+                                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                                    onClick={handleLogin}
+                                >
+                                    Entrar
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    {isLoggedIn && (
+                        <div className="mb-4">
+                            <button
+                                className="bg-green-500 text-white px-4 py-2 rounded"
+                                onClick={handleAddVehicle}
+                            >
+                                Adicionar Veículo
+                            </button>
+                            <button
+                                className="bg-blue-500 text-white px-4 py-2 rounded ml-2"
+                                onClick={applyChanges}
+                            >
+                                Aplicar Alteração
+                            </button>
+                            <button
+                                className="bg-red-500 text-white px-4 py-2 rounded ml-2"
+                                onClick={handleLogout}
+                            >
+                                Sair
+                            </button>
+                        </div>
+                    )}
+                    {sortedVehicles.map(vehicle => (
+                        <VehicleStatus
+                            key={vehicle.id}
+                            vehicle={vehicle}
+                            onStatusChange={handleStatusChange}
+                            onDelete={handleDelete}
+                            onPlateChange={handlePlateChange}
+                            isAdmin={isLoggedIn}
+                        />
+                    ))}
+                    {showConfirmDelete && (
+                        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center">
+                            <div className="bg-white p-6 rounded-lg shadow-lg">
+                                <h2 className="text-xl font-bold mb-4">Confirmar Exclusão</h2>
+                                <p>Tem certeza que deseja excluir este veículo?</p>
+                                <div className="mt-4 flex justify-end">
+                                    <button
+                                        className="bg-red-500 text-white px-4 py-2 rounded mr-2"
+                                        onClick={confirmDelete}
+                                    >
+                                        Sim
+                                    </button>
+                                    <button
+                                        className="bg-gray-500 text-white px-4 py-2 rounded"
+                                        onClick={() => setShowConfirmDelete(false)}
+                                    >
+                                        Não
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
